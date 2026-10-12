@@ -1,0 +1,9 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+.DS_Store
+__pycache__/
+DrugInfromationServiceBundle_v1.25/
+backend/sources/

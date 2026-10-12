@@ -1,0 +1,48 @@
+# anukalpa
+
+*anukalpa* (अनुकल्प) means an alternative or substitute in Sanskrit.
+
+Type an Indian medicine brand (or a salt) and see the generic name to ask for and other brands with the same salts, in India, the US, Canada and the EU.
+
+- Web: https://falakpat3l.github.io/anukalpa/
+- Android: download the APK from Releases (test build).
+
+For information only. Do not change or stop a medicine without asking your doctor or pharmacist.
+
+## How it fits together
+
+```
+backend/brands.csv     India: hand-made list (brand, form, salts)
+backend/india_disb.csv India: from C-DAC / NRCeS Drug Information Service Bundle (CC BY 4.0), see backend/disb/
+backend/sources/       official public lists, downloaded as they are:
+                         US FDA NDC directory, Health Canada Drug Product Database, EMA medicines list
+        |  python3 backend/build_data.py
+        v
+docs/data/<country>.json   one list per country, plus index.json
+docs/index.html            the app (website and Android app use the same page)
+app/                       small Android wrapper that shows docs/ offline
+```
+
+There is no server: the "backend" is the script that builds the data files. The app works offline and sends nothing anywhere. Pick a country (or All) to search; generic names are matched across countries, so "paracetamol" also finds US products listed as acetaminophen.
+
+## Update the data
+
+1. Download the three files listed at the top of `backend/build_data.py` into `backend/sources/`.
+2. Run `python3 backend/build_data.py`.
+3. Commit and push.
+
+To add an Indian brand, add a line to `backend/brands.csv`, for example `Dolo 650,tablet,Paracetamol 650 mg`, and run the script again.
+
+## Data sources and licences
+
+| Country | Source | Licence |
+|---|---|---|
+| India | Drug Information Service Bundle v1.25, C-DAC Pune / NRCeS, Ministry of Health and Family Welfare | CC BY 4.0 (SNOMED CT content not used); reformatted |
+| India | `backend/brands.csv`, hand-made | this repo |
+| US | FDA NDC directory (openFDA) | public domain |
+| Canada | Health Canada Drug Product Database | Contains information licensed under the Open Government Licence, Canada |
+| EU | European Medicines Agency, list of authorised medicines | source: European Medicines Agency |
+
+Brand and trade names belong to their owners and are shown only to identify products. The data is provided as is, for information only.
+
+Made by [Falak Patel](https://falakpatel.com).

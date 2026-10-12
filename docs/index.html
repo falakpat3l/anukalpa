@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>anukalpa: find the generic behind a brand</title>
+<meta name="description" content="Type an Indian medicine brand and see its generic (salt) name, other brands with the same salts,.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<style>
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_regular.ttf);font-weight:400}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_semibold.ttf);font-weight:500 600}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_bold.ttf);font-weight:700}
+/* Same look as padachar: pure black, Exo 2, one soft blue accent, rounded shapes. */
+:root{--bg:#000;--card:#0d0d0d;--line:#2a2a2a;--fg:#ededed;--muted:#9e9e9e;--accent:#8ab4f8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Exo 2",system-ui,sans-serif;
+display:flex;justify-content:center;padding:32px 16px 48px}
+main{width:100%;max-width:560px;text-align:center}
+h1{font-weight:600;font-size:28px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+input{width:100%;font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);
+border-radius:999px;padding:12px 18px;outline:none}
+input:focus{border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px;text-align:left}
+.brand{font-size:20px;font-weight:600;margin:0}
+.form{color:var(--muted);font-size:14px;margin:0 0 10px}
+.label{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px}
+.generic{color:var(--accent);font-size:18px;font-weight:500;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chips button{font:inherit;font-size:14px;color:var(--fg);background:none;border:1px solid var(--line);
+border-radius:999px;padding:3px 12px;cursor:pointer}
+.chips button:hover{border-color:var(--accent)}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#000}
+.muted{color:var(--muted);font-size:14px;margin:4px 0 0}
+.note{color:var(--muted);font-size:13px;margin:22px 0 0}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<h1>anukalpa</h1>
+<p class="sub">Find the generic behind a medicine brand. Type a brand or a salt name, pick a country.</p>
+<div class="chips" id="countries" style="justify-content:center;margin:0 0 12px"></div>
+<input id="q" type="search" placeholder="e.g. Dolo 650 or paracetamol" autocomplete="off" autofocus>
+<div id="out" aria-live="polite"></div>
+<p class="note">For information only. Do not change or stop a medicine without asking your doctor or pharmacist: brands with the same salts can still differ in form or release. Lists come from public government sources: India from the <a href="https://nrces.in">Drug Information Service Bundle</a> by C-DAC / NRCeS (CC BY 4.0, reformatted), plus the US FDA NDC directory (public domain), Health Canada Drug Product Database (contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government Licence, Canada</a>) and the European Medicines Agency list (source: EMA). Brand names belong to their owners. Made by <a href="https://falakpatel.com">Falak Patel</a> &middot; <a href="https://github.com/falakpat3l/anukalpa">source</a>.</p>
+</main>
+
+<script>
+// Data: data/index.json lists the countries; data/<code>.json holds that country's products.
+// Each product: {b: brand, s: [[salt, strength]], f: form, m: maker}. Built by backend/build_data.py.
+var countries = [], loaded = {}, pick = "IN";
+var q = document.getElementById("q"), out = document.getElementById("out"), chips = document.getElementById("countries");
+
+// The same medicine can have a different generic name by country (US name -> international name).
+var ALIAS = {acetaminophen: "paracetamol", albuterol: "salbutamol", epinephrine: "adrenaline", norepinephrine: "noradrenaline",
+  glyburide: "glibenclamide", meperidine: "pethidine", rifampin: "rifampicin", cyclosporine: "ciclosporin",
+  levalbuterol: "levosalbutamol", acetylsalicylic: "aspirin", "acetylsalicylic acid": "aspirin", lidocaine: "lignocaine"};
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function norm(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+function inn(name) { var n = norm(name); return ALIAS[n] || n; }
+function saltText(p) { return p.s.map(function (s) { return (s[0] + " " + s[1]).trim(); }).join(" + "); }
+function saltKey(p) { return p.s.map(function (s) { return inn(s[0]); }).sort().join("|"); }
+function nameOf(code) { return (countries.filter(function (c) { return c.code === code; })[0] || {}).name || code; }
+
+function load(code) {
+  if (loaded[code]) return Promise.resolve(loaded[code]);
+  return fetch("data/" + code + ".json").then(function (r) { return r.json(); }).then(function (rows) {
+    rows.forEach(function (p) { p.c = code; p.key = saltKey(p); p.nb = norm(p.b); p.ns = p.s.map(function (s) { return norm(s[0]) + " " + inn(s[0]); }).join(" "); });
+    return (loaded[code] = rows);
+  });
+}
+function all() { return [].concat.apply([], countries.map(function (c) { return loaded[c.code] || []; })); }
+
+function card(p) {
+  // The same salts elsewhere: other brands, grouped by country (only countries already loaded).
+  var same = all().filter(function (o) { return o !== p && o.key === p.key; }), byC = {};
+  same.forEach(function (o) { (byC[o.c] = byC[o.c] || []).push(o.b); });
+  var html = '<div class="card"><p class="brand">' + esc(p.b) + '</p><p class="form">' + esc(nameOf(p.c)) +
+    (p.f ? " &middot; " + esc(p.f) : "") + (p.m ? " &middot; " + esc(p.m) : "") + "</p>" +
+    '<p class="label">Generic name to ask for</p><p class="generic">' + esc(saltText(p)) + "</p>";
+  html += '<p class="label">Same salts, other brands</p>';
+  var cs = Object.keys(byC);
+  html += cs.length ? cs.map(function (c) {
+    var names = byC[c].filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 12);
+    return '<p class="muted">' + esc(nameOf(c)) + '</p><div class="chips">' + names.map(function (n) { return '<button type="button">' + esc(n) + "</button>"; }).join("") + "</div>";
+  }).join("") : '<p class="muted">None found in the loaded lists.</p>';
+  return html + "</div>";
+}
+
+function search() {
+  var t = norm(q.value);
+  if (t.length < 2) { out.innerHTML = ""; return; }
+  var ti = ALIAS[t] || t;
+  var list = pick === "ALL" ? all() : (loaded[pick] || []);
+  var hits = list.filter(function (p) { return p.nb.indexOf(t) === 0 || p.ns.indexOf(ti) >= 0 || p.nb.indexOf(t) > 0; });
+  hits.sort(function (a, b) { return (b.nb.indexOf(t) === 0) - (a.nb.indexOf(t) === 0); });
+  out.innerHTML = hits.length ? hits.slice(0, 15).map(card).join("") + (hits.length > 15 ? '<p class="muted">' + hits.length + " matches, showing 15. Type more to narrow it down.</p>" : "")
+    : '<div class="card"><p class="muted">Nothing found.</p></div>';
+  out.querySelectorAll(".chips button").forEach(function (btn) {
+    btn.addEventListener("click", function () { q.value = btn.textContent; search(); });
+  });
+}
+
+function drawChips() {
+  chips.innerHTML = countries.concat([{code: "ALL", name: "All"}]).map(function (c) {
+    return '<button type="button" data-c="' + c.code + '" class="' + (c.code === pick ? "on" : "") + '">' + esc(c.name) + "</button>";
+  }).join("");
+  chips.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      pick = b.dataset.c; drawChips();
+      var need = pick === "ALL" ? countries.map(function (c) { return c.code; }) : [pick];
+      out.innerHTML = '<p class="muted">Loading&hellip;</p>';
+      Promise.all(need.map(load)).then(search);
+    });
+  });
+}
+
+q.addEventListener("input", search);
+fetch("data/index.json").then(function (r) { return r.json(); }).then(function (idx) {
+  countries = idx; drawChips(); return load("IN");
+}).then(search).catch(function () { out.innerHTML = '<div class="card"><p class="muted">Could not load the medicine list.</p></div>'; });
+</script>
+</body>
+</html>
