@@ -51,6 +51,8 @@ a{color:var(--accent)}
 // Data: data/index.json lists the countries; data/<code>.json holds that country's products.
 // Each product: {b: brand, s: [[salt, strength]], f: form, m: maker}. Built by backend/build_data.py.
 var countries = [], loaded = {}, pick = "IN";
+var byKey = {};      // salt combination -> every product with it, for fast "same salts" lookups
+var allRows = [];    // every loaded product, rebuilt when a country loads
 var q = document.getElementById("q"), out = document.getElementById("out"), chips = document.getElementById("countries");
 
 // The same medicine can have a different generic name by country (US name -> international name).
@@ -62,30 +64,38 @@ function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 function norm(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
 function inn(name) { var n = norm(name); return ALIAS[n] || n; }
 function saltText(p) { return p.s.map(function (s) { return (s[0] + " " + s[1]).trim(); }).join(" + "); }
-function saltKey(p) { return p.s.map(function (s) { return inn(s[0]); }).sort().join("|"); }
+// Same salts AND same strength count as a match (e.g. paracetamol 500 mg), whatever the country.
+function strength(t) { return (t || "").toLowerCase().replace(/\s+/g, "").replace(/micrograms?|µg/g, "mcg").replace(/milligrams?/g, "mg"); }
+function saltKey(p) { return p.s.map(function (s) { return inn(s[0]) + "@" + strength(s[1]); }).sort().join("|"); }
 function nameOf(code) { return (countries.filter(function (c) { return c.code === code; })[0] || {}).name || code; }
 
 function load(code) {
   if (loaded[code]) return Promise.resolve(loaded[code]);
   return fetch("data/" + code + ".json").then(function (r) { return r.json(); }).then(function (rows) {
-    rows.forEach(function (p) { p.c = code; p.key = saltKey(p); p.nb = norm(p.b); p.ns = p.s.map(function (s) { return norm(s[0]) + " " + inn(s[0]); }).join(" "); });
-    return (loaded[code] = rows);
+    rows.forEach(function (p) {
+      p.c = code; p.key = saltKey(p); p.nb = norm(p.b);
+      p.ns = p.s.map(function (s) { return norm(s[0]) + " " + inn(s[0]); }).join(" ");
+      (byKey[p.key] = byKey[p.key] || []).push(p);
+    });
+    loaded[code] = rows;
+    allRows = [].concat.apply([], countries.map(function (c) { return loaded[c.code] || []; }));
+    return rows;
   });
 }
-function all() { return [].concat.apply([], countries.map(function (c) { return loaded[c.code] || []; })); }
+function all() { return allRows; }
 
 function card(p) {
   // The same salts elsewhere: other brands, grouped by country (only countries already loaded).
-  var same = all().filter(function (o) { return o !== p && o.key === p.key; }), byC = {};
+  var same = (byKey[p.key] || []).filter(function (o) { return o !== p; }), byC = {};
   same.forEach(function (o) { (byC[o.c] = byC[o.c] || []).push(o.b); });
   var html = '<div class="card"><p class="brand">' + esc(p.b) + '</p><p class="form">' + esc(nameOf(p.c)) +
     (p.f ? " &middot; " + esc(p.f) : "") + (p.m ? " &middot; " + esc(p.m) : "") + "</p>" +
     '<p class="label">Generic name to ask for</p><p class="generic">' + esc(saltText(p)) + "</p>";
-  html += '<p class="label">Same salts, other brands</p>';
+  html += '<p class="label">Same salts and strength, other brands</p>';
   var cs = Object.keys(byC);
   html += cs.length ? cs.map(function (c) {
     var names = byC[c].filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 12);
-    return '<p class="muted">' + esc(nameOf(c)) + '</p><div class="chips">' + names.map(function (n) { return '<button type="button">' + esc(n) + "</button>"; }).join("") + "</div>";
+    return '<p class="muted">' + esc(nameOf(c)) + '</p><div class="chips">' + names.map(function (n) { return '<button type="button" data-c="' + c + '">' + esc(n) + "</button>"; }).join("") + "</div>";
   }).join("") : '<p class="muted">None found in the loaded lists.</p>';
   return html + "</div>";
 }
@@ -100,12 +110,15 @@ function search() {
   out.innerHTML = hits.length ? hits.slice(0, 15).map(card).join("") + (hits.length > 15 ? '<p class="muted">' + hits.length + " matches, showing 15. Type more to narrow it down.</p>" : "")
     : '<div class="card"><p class="muted">Nothing found.</p></div>';
   out.querySelectorAll(".chips button").forEach(function (btn) {
-    btn.addEventListener("click", function () { q.value = btn.textContent; search(); });
+    btn.addEventListener("click", function () {
+      if (pick !== "ALL" && btn.dataset.c && btn.dataset.c !== pick) { pick = btn.dataset.c; drawChips(); }
+      q.value = btn.textContent; search(); window.scrollTo(0, 0);
+    });
   });
 }
 
 function drawChips() {
-  chips.innerHTML = countries.concat([{code: "ALL", name: "All"}]).map(function (c) {
+  chips.innerHTML = [{code: "ALL", name: "All"}].concat(countries).map(function (c) {
     return '<button type="button" data-c="' + c.code + '" class="' + (c.code === pick ? "on" : "") + '">' + esc(c.name) + "</button>";
   }).join("");
   chips.querySelectorAll("button").forEach(function (b) {
@@ -118,7 +131,8 @@ function drawChips() {
   });
 }
 
-q.addEventListener("input", search);
+var timer;
+q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(search, 120); });
 fetch("data/index.json").then(function (r) { return r.json(); }).then(function (idx) {
   countries = idx; drawChips(); return load("IN");
 }).then(search).catch(function () { out.innerHTML = '<div class="card"><p class="muted">Could not load the medicine list.</p></div>'; });
