@@ -2,7 +2,7 @@
 
 *anukalpa* (अनुकल्प) means an alternative or substitute in Sanskrit.
 
-Type an Indian medicine brand (or a salt) and see the generic name to ask for and other brands with the same salts, in India, the US, Canada and the EU.
+Type a medicine brand (or a salt) and see the generic name to ask for (salts and strength), plus other brands with the same salts and strength, in India, the US, Canada and the EU.
 
 - Web: https://falakpat3l.github.io/anukalpa/
 - Android: download the APK from Releases (test build).
@@ -20,14 +20,15 @@ backend/sources/       official public lists, downloaded as they are:
         v
 docs/data/<country>.json   one list per country, plus index.json
 docs/index.html            the app (website and Android app use the same page)
+docs/icon.svg, icon-*.png  web app icons (same capsule as the Android launcher icon)
 app/                       small Android wrapper that shows docs/ offline
 ```
 
-There is no server: the "backend" is the script that builds the data files. The app works offline and sends nothing anywhere. Pick a country (or All) to search; generic names are matched across countries, so "paracetamol" also finds US products listed as acetaminophen.
+There is no server: the "backend" is the script that builds the data files. The app works offline and sends nothing anywhere. Pick a country (or All) to search; generic names are matched across countries, so "paracetamol" also finds US products listed as acetaminophen. A search stays in the page link (for example `?q=dolo%20650&c=ALL`), so it can be shared or reopened.
 
 ## Update the data
 
-1. Download the three files listed at the top of `backend/build_data.py` into `backend/sources/`.
+1. Download the three files listed at the top of `backend/build_data.py` (US, Canada, EU) into `backend/sources/`. The India list from DISB is rebuilt separately, see `backend/disb/README.md`.
 2. Run `python3 backend/build_data.py`.
 3. Commit and push.
 

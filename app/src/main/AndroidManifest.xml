@@ -6,7 +6,9 @@
         android:icon="@mipmap/ic_launcher"
         android:label="anukalpa"
         android:theme="@style/Theme.App">
-        <activity android:name=".MainActivity" android:exported="true">
+        <!-- Handle rotation and resizing here, so the page is not reloaded and nothing typed is lost. -->
+        <activity android:name=".MainActivity" android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -2,143 +2,404 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>anukalpa: find the generic behind a brand</title>
-<meta name="description" content="Type an Indian medicine brand and see its generic (salt) name, other brands with the same salts,.">
+<meta name="description" content="Type a medicine brand or salt and see its generic (salt and strength) name, and other brands with the same salts in India, the US, Canada and the EU.">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#000000">
 <style>
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_regular.ttf);font-weight:400}
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_semibold.ttf);font-weight:500 600}
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_bold.ttf);font-weight:700}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_regular.ttf);font-weight:400;font-display:swap}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_semibold.ttf);font-weight:500 600;font-display:swap}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_bold.ttf);font-weight:700;font-display:swap}
 /* Same look as padachar: pure black, Exo 2, one soft blue accent, rounded shapes. */
-:root{--bg:#000;--card:#0d0d0d;--line:#2a2a2a;--fg:#ededed;--muted:#9e9e9e;--accent:#8ab4f8}
+:root{--bg:#000;--card:#0d0d0d;--card2:#151515;--line:#2a2a2a;--fg:#ededed;--muted:#9e9e9e;--accent:#8ab4f8;color-scheme:dark}
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Exo 2",system-ui,sans-serif;
-display:flex;justify-content:center;padding:32px 16px 48px}
-main{width:100%;max-width:560px;text-align:center}
-h1{font-weight:600;font-size:28px;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 20px}
-input{width:100%;font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);
-border-radius:999px;padding:12px 18px;outline:none}
-input:focus{border-color:var(--accent)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px;text-align:left}
-.brand{font-size:20px;font-weight:600;margin:0}
-.form{color:var(--muted);font-size:14px;margin:0 0 10px}
-.label{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px}
-.generic{color:var(--accent);font-size:18px;font-weight:500;margin:0}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.chips button{font:inherit;font-size:14px;color:var(--fg);background:none;border:1px solid var(--line);
-border-radius:999px;padding:3px 12px;cursor:pointer}
-.chips button:hover{border-color:var(--accent)}
-.chips button.on{background:var(--accent);border-color:var(--accent);color:#000}
-.muted{color:var(--muted);font-size:14px;margin:4px 0 0}
-.note{color:var(--muted);font-size:13px;margin:22px 0 0}
-a{color:var(--accent)}
+-webkit-tap-highlight-color:transparent}
+main{width:100%;max-width:600px;margin:0 auto;padding:28px 16px 40px}
+a{color:var(--accent);text-underline-offset:2px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Header */
+.top{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+.logo{width:40px;height:40px;flex:none;border:1px solid var(--line);border-radius:12px;background:var(--card);display:grid;place-items:center}
+.logo svg{width:28px;height:28px}
+h1{font-weight:700;font-size:26px;line-height:1.1;margin:0;letter-spacing:.01em}
+.tag{color:var(--muted);font-size:14px;margin:2px 0 0;text-wrap:balance}
+
+/* Search bar: stays at the top while scrolling */
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);margin:0 -16px;padding:14px 16px 10px}
+.bar::after{content:"";position:absolute;left:0;right:0;bottom:-14px;height:14px;pointer-events:none;
+background:linear-gradient(var(--bg),rgba(0,0,0,0))}
+.field{position:relative}
+.field svg{position:absolute;left:16px;top:50%;width:18px;height:18px;margin-top:-9px;color:var(--muted);pointer-events:none}
+input{width:100%;font:inherit;font-size:17px;color:var(--fg);background:var(--card);border:1px solid var(--line);
+border-radius:999px;padding:12px 46px 12px 44px;outline:none;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
+input::placeholder{color:#6f6f6f}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(138,180,248,.18)}
+input:focus-visible{outline:none}
+input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:999px;
+background:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;display:none}
+.clear:hover{color:var(--fg);background:var(--card2)}
+.field.has .clear{display:block}
+
+.countries{display:flex;gap:6px;margin-top:10px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.countries::-webkit-scrollbar{display:none}
+.countries button{flex:none;font-size:14px;background:none;border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;
+color:var(--muted);transition:border-color .15s,background-color .15s,color .15s}
+.countries button:hover{border-color:var(--accent);color:var(--fg)}
+.countries button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+
+/* Results */
+.status{color:var(--muted);font-size:13px;margin:8px 2px 0;min-height:1.5em}
+.status:focus{outline:none}
+.status:empty{min-height:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-top:12px;
+overflow-wrap:anywhere;animation:in .18s ease-out}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.head{display:flex;align-items:flex-start;gap:10px}
+.brand{font-size:19px;font-weight:600;line-height:1.3;margin:0;flex:1;min-width:0}
+.badge{flex:none;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 10px;margin-top:3px;white-space:nowrap}
+.meta{color:var(--muted);font-size:14px;margin:2px 0 0}
+.ask{margin:14px 0 0;padding:10px 14px;background:var(--card2);border-radius:12px}
+.label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin:0}
+.generic{color:var(--accent);font-size:18px;font-weight:600;line-height:1.35;margin:2px 0 0}
+.generic .plus{color:var(--muted);font-weight:400;padding:0 2px}
+.same{margin-top:14px}
+.group{margin-top:8px}
+.gname{font-size:13px;color:var(--fg);margin:0 0 4px}
+.gname span{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{font-size:14px;background:none;border:1px solid var(--line);border-radius:999px;padding:3px 12px;cursor:pointer;
+max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .15s,background-color .15s}
+.chips button:hover{border-color:var(--accent);background:var(--card2)}
+.more{font-size:13px;color:var(--muted);align-self:center;padding:0 4px}
+.none{color:var(--muted);font-size:14px;margin:6px 0 0}
+.card>.none{margin-top:12px}
+
+/* Empty, loading and error states */
+.empty{text-align:center;padding:26px 18px}
+.empty h2{font-size:17px;font-weight:600;margin:0 0 4px}
+.empty p{color:var(--muted);font-size:14px;margin:0}
+.empty .chips{justify-content:center;margin-top:14px}
+.pill{display:inline-block;margin-top:14px;font-size:14px;font-weight:600;border:1px solid var(--accent);background:none;color:var(--accent);
+border-radius:999px;padding:6px 18px;cursor:pointer;transition:background-color .15s,color .15s}
+.pill:hover{background:var(--accent);color:#000}
+.load{height:3px;border-radius:3px;background:var(--line);overflow:hidden;margin:16px auto 0;max-width:220px}
+.load i{display:block;height:100%;width:40%;background:var(--accent);border-radius:3px;animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+.foot{text-align:center;color:var(--muted);font-size:14px;margin:16px 0 0}
+.link{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* Safety note and credits */
+.note{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.note p{margin:0 0 10px}
+.note strong{color:var(--fg);font-weight:600}
+
+@media (min-width:700px){main{padding-top:56px}h1{font-size:30px}.logo{width:46px;height:46px}.logo svg{width:32px;height:32px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
 <main>
-<h1>anukalpa</h1>
-<p class="sub">Find the generic behind a medicine brand. Type a brand or a salt name, pick a country.</p>
-<div class="chips" id="countries" style="justify-content:center;margin:0 0 12px"></div>
-<input id="q" type="search" placeholder="e.g. Dolo 650 or paracetamol" autocomplete="off" autofocus>
-<div id="out" aria-live="polite"></div>
-<p class="note">For information only. Do not change or stop a medicine without asking your doctor or pharmacist: brands with the same salts can still differ in form or release. Lists come from public government sources: India from the <a href="https://nrces.in">Drug Information Service Bundle</a> by C-DAC / NRCeS (CC BY 4.0, reformatted), plus the US FDA NDC directory (public domain), Health Canada Drug Product Database (contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government Licence, Canada</a>) and the European Medicines Agency list (source: EMA). Brand names belong to their owners. Made by <a href="https://falakpatel.com">Falak Patel</a> &middot; <a href="https://github.com/falakpat3l/anukalpa">source</a>.</p>
+<header class="top">
+  <div class="logo" aria-hidden="true"><svg viewBox="16 16 76 76"><g transform="rotate(-45 54 54)"><path d="M42,40h24a14,14 0 0 1 0,28h-24a14,14 0 0 1 0,-28z" fill="none" stroke="#ededed" stroke-width="4"/><path d="M42,40h12v28h-12a14,14 0 0 1 0,-28z" fill="#ededed"/></g></svg></div>
+  <div>
+    <h1>anukalpa</h1>
+    <p class="tag">Find the generic name behind a medicine brand.</p>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="field" id="field">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="q" type="search" placeholder="Brand or salt, e.g. Dolo 650" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Medicine brand or salt">
+    <button type="button" class="clear" id="clear" aria-label="Clear search">&times;</button>
+  </div>
+  <div class="countries" id="countries" role="group" aria-label="Country"></div>
+</div>
+
+<p class="status" id="status" aria-live="polite" tabindex="-1"></p>
+<div id="out"></div>
+
+<footer class="note">
+  <p><strong>For information only.</strong> Do not change or stop a medicine without asking your doctor or pharmacist: brands with the same salts can still differ in form or release.</p>
+  <p>Lists come from public government sources: India from the <a href="https://nrces.in">Drug Information Service Bundle</a> by C-DAC / NRCeS (CC BY 4.0, reformatted), the US FDA NDC directory (public domain), the Health Canada Drug Product Database (contains information licensed under the <a href="https://open.canada.ca/en/open-government-licence-canada">Open Government Licence, Canada</a>) and the European Medicines Agency list (source: EMA).</p>
+  <p>Brand names belong to their owners. Made by <a href="https://falakpatel.com">Falak Patel</a> &middot; <a href="https://github.com/falakpat3l/anukalpa">source</a></p>
+</footer>
 </main>
 
 <script>
 // Data: data/index.json lists the countries; data/<code>.json holds that country's products.
 // Each product: {b: brand, s: [[salt, strength]], f: form, m: maker}. Built by backend/build_data.py.
-var countries = [], loaded = {}, pick = "IN";
-var byKey = {};      // salt combination -> every product with it, for fast "same salts" lookups
-var allRows = [];    // every loaded product, rebuilt when a country loads
+var countries = [], loaded = {}, loading = {}, pick = "IN";
+var indexState = "loading";  // "loading", "error" or "ok"
+var failed = null;           // the choice (country code or ALL) whose list failed to load
+var want = 0;                // counts country choices, so a slow old download does not overwrite a newer choice
+var byKey = {};              // salt combination -> every product with it, for fast "same salts" lookups
+var allRows = [];            // every loaded product, rebuilt when a country loads
 var q = document.getElementById("q"), out = document.getElementById("out"), chips = document.getElementById("countries");
+var stat = document.getElementById("status"), field = document.getElementById("field");
+
+// Short labels for the country buttons and badges (full names stay in index.json).
+var SHORT = {IN: "India", US: "US", CA: "Canada", EU: "EU"};
+// A few searches to try, per choice. Each one exists in that list.
+var EXAMPLES = {IN: ["Dolo 650", "Crocin", "Pan 40", "metformin"], US: ["Tylenol", "metformin", "atorvastatin"],
+  CA: ["Tylenol", "metformin", "amoxicillin"], EU: ["Abilify", "insulin glargine"], ALL: ["Dolo 650", "paracetamol", "metformin"]};
 
 // The same medicine can have a different generic name by country (US name -> international name).
 var ALIAS = {acetaminophen: "paracetamol", albuterol: "salbutamol", epinephrine: "adrenaline", norepinephrine: "noradrenaline",
   glyburide: "glibenclamide", meperidine: "pethidine", rifampin: "rifampicin", cyclosporine: "ciclosporin",
   levalbuterol: "levosalbutamol", acetylsalicylic: "aspirin", "acetylsalicylic acid": "aspirin", lidocaine: "lignocaine"};
 
-function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
-function norm(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+function esc(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function norm(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
 function inn(name) { var n = norm(name); return ALIAS[n] || n; }
-function saltText(p) { return p.s.map(function (s) { return (s[0] + " " + s[1]).trim(); }).join(" + "); }
+function fmt(n) { return Number(n).toLocaleString("en"); }
 // Same salts AND same strength count as a match (e.g. paracetamol 500 mg), whatever the country.
-function strength(t) { return (t || "").toLowerCase().replace(/\s+/g, "").replace(/micrograms?|µg/g, "mcg").replace(/milligrams?/g, "mg"); }
+// Plain weights are compared in mg, so "1 g" matches "1000 mg".
+function strength(t) {
+  var s = (t || "").toLowerCase().replace(/\s+/g, "").replace(/micrograms?|µg|μg/g, "mcg").replace(/milligrams?/g, "mg");
+  var m = /^(\d*\.?\d+)(mcg|mg|g)$/.exec(s);
+  return m ? +(parseFloat(m[1]) * {mcg: 0.001, mg: 1, g: 1000}[m[2]]).toFixed(6) + "mg" : s;
+}
 function saltKey(p) { return p.s.map(function (s) { return inn(s[0]) + "@" + strength(s[1]); }).sort().join("|"); }
-function nameOf(code) { return (countries.filter(function (c) { return c.code === code; })[0] || {}).name || code; }
+function country(code) { return countries.filter(function (c) { return c.code === code; })[0] || {code: code, name: code}; }
+function longName(code) { return code === "ALL" ? "all countries" : country(code).name; }
+function shortName(code) { return code === "ALL" ? "All" : SHORT[code] || country(code).name; }
+function codesFor(choice) { return choice === "ALL" ? countries.map(function (c) { return c.code; }) : [choice]; }
+function isReady(choice) { return codesFor(choice).every(function (c) { return loaded[c]; }); }
 
 function load(code) {
   if (loaded[code]) return Promise.resolve(loaded[code]);
-  // A failed download is not cached, so tapping the country again retries it.
-  return fetch("data/" + code + ".json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (rows) {
+  // Share one download per list: two quick taps must not add every product twice.
+  if (loading[code]) return loading[code];
+  loading[code] = fetch("data/" + code + ".json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (rows) {
     rows.forEach(function (p) {
       p.c = code; p.key = saltKey(p); p.nb = norm(p.b);
       p.ns = p.s.map(function (s) { return norm(s[0]) + " " + inn(s[0]); }).join(" ");
       (byKey[p.key] = byKey[p.key] || []).push(p);
     });
-    loaded[code] = rows;
+    loaded[code] = rows; delete loading[code];
     allRows = [].concat.apply([], countries.map(function (c) { return loaded[c.code] || []; }));
     return rows;
+  }, function (err) {
+    delete loading[code];  // not cached, so Retry downloads it again
+    throw err;
+  });
+  return loading[code];
+}
+
+// Pick a country (or ALL): load what it needs, then search again.
+function choose(choice) {
+  pick = choice; failed = null; drawChips();
+  var mine = ++want, ready = isReady(choice);
+  search();
+  if (ready) return;
+  Promise.all(codesFor(choice).map(load)).then(function () {
+    if (mine === want) search();
+  }, function () {
+    if (mine === want) { failed = choice; search(); }
   });
 }
-function all() { return allRows; }
 
-function card(p) {
-  // The same salts elsewhere: other brands, grouped by country (only countries already loaded).
-  var same = (byKey[p.key] || []).filter(function (o) { return o !== p; }), byC = {};
-  same.forEach(function (o) { (byC[o.c] = byC[o.c] || []).push(o.b); });
-  var html = '<div class="card"><p class="brand">' + esc(p.b) + '</p><p class="form">' + esc(nameOf(p.c)) +
-    (p.f ? " &middot; " + esc(p.f) : "") + (p.m ? " &middot; " + esc(p.m) : "") + "</p>" +
-    '<p class="label">Generic name to ask for</p><p class="generic">' + esc(saltText(p)) + "</p>";
-  html += '<p class="label">Same salts and strength, other brands</p>';
-  var cs = Object.keys(byC);
-  html += cs.length ? cs.map(function (c) {
-    var names = byC[c].filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 12);
-    return '<p class="muted">' + esc(nameOf(c)) + '</p><div class="chips">' + names.map(function (n) { return '<button type="button" data-c="' + c + '">' + esc(n) + "</button>"; }).join("") + "</div>";
-  }).join("") : '<p class="muted">None found in the loaded lists.</p>';
-  return html + "</div>";
+function setUrl(text) {
+  // Keep the search in the link, so it can be shared or reopened.
+  var parts = [];
+  if (text) parts.push("q=" + encodeURIComponent(text));
+  if (pick !== "IN") parts.push("c=" + pick);
+  try { history.replaceState(null, "", parts.length ? "?" + parts.join("&") : location.pathname); } catch (e) { /* not allowed here */ }
+}
+
+function exampleChips(choice) {
+  return '<div class="chips">' + (EXAMPLES[choice] || EXAMPLES.ALL).map(function (e) {
+    return '<button type="button" data-q="' + esc(e) + '">' + esc(e) + "</button>";
+  }).join("") + "</div>";
+}
+
+function card(p, twin) {
+  // The same salts and strength elsewhere: other brands, grouped by country (only lists already loaded).
+  var byC = {}, seenC = {};
+  (byKey[p.key] || []).forEach(function (o) {
+    // Skip this product itself, and names that differ only in case or spacing.
+    if (o === p || (o.c === p.c && o.nb === p.nb)) return;
+    var l = byC[o.c] = byC[o.c] || [], seen = seenC[o.c] = seenC[o.c] || {};
+    if (!seen[o.nb]) { seen[o.nb] = 1; l.push(o.b); }
+  });
+  var meta = [p.f, p.m].filter(Boolean).map(esc).join(" &middot; ");
+  var generic = p.s.map(function (s) { return esc((s[0] + " " + s[1]).trim()); }).join(' <span class="plus">+</span> ');
+  var top = '<article class="card"><div class="head"><h2 class="brand">' + esc(p.b) + '</h2><span class="badge">' + esc(shortName(p.c)) + "</span></div>" +
+    (meta ? '<p class="meta">' + meta + "</p>" : "") +
+    '<div class="ask"><p class="label">Generic name to ask for</p><p class="generic">' + generic + "</p></div>";
+  // A card higher up already lists the brands with these salts: point to it instead of repeating them.
+  if (twin) return top + '<p class="none">Same salts and strength as ' + esc(twin.b) + " above.</p></article>";
+  var order = [p.c].concat(countries.map(function (c) { return c.code; }).filter(function (c) { return c !== p.c; }));
+  var groups = order.filter(function (c) { return byC[c]; }).map(function (c) {
+    var names = byC[c], shown = names.slice(0, 12);
+    return '<div class="group"><p class="gname">' + esc(country(c).name) + " <span>&middot; " + fmt(names.length) + "</span></p>" +
+      '<div class="chips">' + shown.map(function (n) {
+        return '<button type="button" data-q="' + esc(n) + '" data-c="' + esc(c) + '" title="' + esc(n) + '">' + esc(n) + "</button>";
+      }).join("") + (names.length > shown.length ? '<span class="more">+' + fmt(names.length - shown.length) + " more</span>" : "") + "</div></div>";
+  }).join("");
+  return top + '<div class="same"><p class="label">Same salts and strength</p>' +
+    (groups || '<p class="none">No other brand found in the loaded ' + (Object.keys(loaded).length > 1 ? "lists" : "list") + ".</p>") +
+    "</div></article>";
+}
+
+// Lower is better: exact brand, brand start, word in brand, salt, then anywhere.
+function rank(p, t, ti) {
+  if (p.nb === t) return 0;
+  if (p.nb.indexOf(t) === 0) return 1;
+  if (p.nb.indexOf(" " + t) >= 0) return 2;
+  if (p.ns.indexOf(ti) >= 0) return 3;
+  if (p.nb.indexOf(t) >= 0) return 4;
+  return 5;
+}
+
+function message(title, text, extra) {
+  return '<div class="card empty"><h2>' + title + "</h2>" + (text ? "<p>" + text + "</p>" : "") + (extra || "") + "</div>";
 }
 
 function search() {
-  var t = norm(q.value);
-  if (t.length < 2) { out.innerHTML = ""; return; }
+  var raw = q.value.trim(), t = norm(raw);
+  field.classList.toggle("has", q.value.length > 0);
+  setUrl(raw);
+  if (indexState !== "ok") {
+    stat.textContent = "";
+    out.innerHTML = indexState === "error"
+      ? message("Could not load the medicine lists", "Check your connection and try again.", '<button type="button" class="pill" data-retry>Try again</button>')
+      : message("Loading&hellip;", "", '<div class="load"><i></i></div>');
+    return;
+  }
+  if (failed === pick && !isReady(pick)) {
+    stat.textContent = "";
+    out.innerHTML = message("Could not load the " + esc(pick === "ALL" ? "lists" : country(pick).name + " list"),
+      "Check your connection and try again.", '<button type="button" class="pill" data-retry>Try again</button>');
+    return;
+  }
+  if (!isReady(pick)) {
+    var total = codesFor(pick).reduce(function (n, c) { return n + (country(c).count || 0); }, 0);
+    stat.textContent = "";
+    out.innerHTML = message("Loading " + esc(pick === "ALL" ? "all lists" : "the " + country(pick).name + " list") + "&hellip;",
+      total ? fmt(total) + " products. Your search runs as soon as it is ready." : "", '<div class="load"><i></i></div>');
+    return;
+  }
+  if (t.length < 2) {
+    stat.textContent = "";
+    out.innerHTML = message(t ? "Keep typing" : "What are you looking for?",
+      "Type at least 2 letters of a brand or a salt. Try one of these:", exampleChips(pick));
+    return;
+  }
+
   var ti = ALIAS[t] || t;
-  var list = pick === "ALL" ? all() : (loaded[pick] || []);
-  var hits = list.filter(function (p) { return p.nb.indexOf(t) === 0 || p.ns.indexOf(ti) >= 0 || p.nb.indexOf(t) > 0; });
-  hits.sort(function (a, b) { return (b.nb.indexOf(t) === 0) - (a.nb.indexOf(t) === 0); });
-  out.innerHTML = hits.length ? hits.slice(0, 15).map(card).join("") + (hits.length > 15 ? '<p class="muted">' + hits.length + " matches, showing 15. Type more to narrow it down.</p>" : "")
-    : '<div class="card"><p class="muted">Nothing found.</p></div>';
-  out.querySelectorAll(".chips button").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      if (pick !== "ALL" && btn.dataset.c && btn.dataset.c !== pick) { pick = btn.dataset.c; drawChips(); }
-      q.value = btn.textContent; search(); window.scrollTo(0, 0);
-    });
+  var words = t.split(" ").map(function (w) { return ALIAS[w] || w; });
+  var list = pick === "ALL" ? allRows : loaded[pick];
+  var hits = [], seen = {};
+  list.forEach(function (p) {
+    var ok = p.nb.indexOf(t) >= 0 || p.ns.indexOf(ti) >= 0;
+    // Several words, like "paracetamol 650": every word must appear in the brand, salts or strengths.
+    if (!ok && words.length > 1) {
+      var hay = p.nb + " " + p.ns + " " + p.s.map(function (s) { return norm(s[1]); }).join(" ");
+      ok = words.every(function (w) { return hay.indexOf(w) >= 0; });
+    }
+    if (!ok) return;
+    var r = rank(p, t, ti), k = r + "/" + p.s.length + "/" + p.c;
+    // Position among similar hits from the same country: in All mode this mixes the countries instead of listing India first.
+    seen[k] = (seen[k] || 0) + 1;
+    hits.push({p: p, r: r, i: seen[k]});
   });
+  // Best match first, plain products before combinations, then the list's own order.
+  hits.sort(function (a, b) { return a.r - b.r || a.p.s.length - b.p.s.length || a.i - b.i; });
+
+  var where = longName(pick);
+  if (!hits.length) {
+    stat.textContent = "No match in " + where + ".";
+    out.innerHTML = message("No match for &ldquo;" + esc(raw) + "&rdquo;",
+      "Check the spelling, or try the salt name instead of the brand.",
+      pick !== "ALL" ? '<button type="button" class="pill" data-all>Search all countries</button>' : "");
+    return;
+  }
+  var shown = hits.slice(0, 15);
+  stat.textContent = hits.length > shown.length
+    ? "Showing " + shown.length + " of " + fmt(hits.length) + " matches in " + where + ". Type more to narrow it down."
+    : fmt(hits.length) + (hits.length === 1 ? " match" : " matches") + " in " + where + ".";
+  var tip = "";
+  if (pick !== "ALL" && countries.some(function (c) { return !loaded[c.code]; })) {
+    tip = '<p class="foot">Want brands from other countries too? <button type="button" class="link" data-all>Search all countries</button></p>';
+  }
+  var firstWith = {};
+  out.innerHTML = shown.map(function (h) {
+    var twin = firstWith[h.p.key];
+    if (!twin) firstWith[h.p.key] = h.p;
+    return card(h.p, twin);
+  }).join("") + tip;
 }
 
 function drawChips() {
-  chips.innerHTML = [{code: "ALL", name: "All"}].concat(countries).map(function (c) {
-    return '<button type="button" data-c="' + c.code + '" class="' + (c.code === pick ? "on" : "") + '">' + esc(c.name) + "</button>";
+  chips.innerHTML = [{code: "ALL"}].concat(countries).map(function (c) {
+    return '<button type="button" data-c="' + esc(c.code) + '" aria-pressed="' + (c.code === pick) + '"' +
+      (c.name ? ' title="' + esc(c.name) + '"' : "") + ">" + esc(shortName(c.code)) + "</button>";
   }).join("");
-  chips.querySelectorAll("button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      pick = b.dataset.c; drawChips();
-      var need = pick === "ALL" ? countries.map(function (c) { return c.code; }) : [pick];
-      out.innerHTML = '<p class="muted">Loading&hellip;</p>';
-      Promise.all(need.map(load)).then(search, function () {
-        out.innerHTML = '<div class="card"><p class="muted">Could not load that list. Check your connection and tap the country again.</p></div>';
-      });
-    });
-  });
 }
 
+chips.addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (b) choose(b.dataset.c);
+});
+
+out.addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (!b) return;
+  if (b.hasAttribute("data-retry")) { if (indexState === "error") start(); else choose(pick); return; }
+  if (b.hasAttribute("data-all")) { choose("ALL"); return; }
+  if (b.dataset.q) {
+    q.value = b.dataset.q;
+    // A brand from another country: switch to that country, unless All is on.
+    if (b.dataset.c && pick !== "ALL" && b.dataset.c !== pick) choose(b.dataset.c); else search();
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({top: 0, behavior: reduce ? "auto" : "smooth"});
+    // The tapped button is gone now: keep keyboard focus on the results line.
+    stat.focus({preventScroll: true});
+  }
+});
+
 var timer;
-q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(search, 120); });
-fetch("data/index.json").then(function (r) { return r.json(); }).then(function (idx) {
-  countries = idx; drawChips(); return load("IN");
-}).then(search).catch(function () { out.innerHTML = '<div class="card"><p class="muted">Could not load the medicine list.</p></div>'; });
+q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(search, 120); field.classList.toggle("has", q.value.length > 0); });
+q.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { clearTimeout(timer); search(); }
+  if (e.key === "Escape" && q.value) { e.preventDefault(); q.value = ""; clearTimeout(timer); search(); }
+});
+document.getElementById("clear").addEventListener("click", function () { q.value = ""; clearTimeout(timer); search(); q.focus(); });
+// Press "/" anywhere to jump to the search box.
+document.addEventListener("keydown", function (e) {
+  if (e.key === "/" && document.activeElement !== q && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); q.focus(); q.select(); }
+});
+
+function start() {
+  indexState = "loading"; search();
+  fetch("data/index.json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (idx) {
+    countries = idx; indexState = "ok";
+    if (pick !== "ALL" && !countries.some(function (c) { return c.code === pick; })) pick = "IN";
+    choose(pick);
+  }).catch(function () { indexState = "error"; search(); });
+}
+
+// Open a shared link (?q=...&c=...) where it left off.
+(function () {
+  var u = new URLSearchParams(location.search), c = (u.get("c") || "").toUpperCase();
+  if (u.get("q")) q.value = u.get("q");
+  if (c === "ALL" || /^[A-Z]{2}$/.test(c)) pick = c;
+  if (!q.value) q.focus();
+})();
+start();
 </script>
 </body>
 </html>

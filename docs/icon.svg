@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 76 76">
+  <!-- Same drawing as the Android launcher icon: a capsule split in half, tilted. -->
+  <rect x="16" y="16" width="76" height="76" rx="18" fill="#000"/>
+  <g transform="rotate(-45 54 54)">
+    <path d="M42,40h24a14,14 0 0 1 0,28h-24a14,14 0 0 1 0,-28z" fill="none" stroke="#fff" stroke-width="4"/>
+    <path d="M42,40h12v28h-12a14,14 0 0 1 0,-28z" fill="#fff"/>
+  </g>
+</svg>
