@@ -10,12 +10,16 @@ Inputs (put the downloaded files in backend/sources/, exactly as downloaded):
           https://www.ema.europa.eu/en/documents/report/medicines-output-medicines-report_en.xlsx
 A missing file is skipped, so the app works with whatever is there.
 
-Output: docs/data/<code>.json (one list per country) and docs/data/index.json.
-Each entry: {"b": brand, "s": [[salt, strength], ...], "f": form, "m": maker}
+Output: docs/data/<code>.json (one file per country) and docs/data/index.json.
+To keep the files small, repeated text is stored once in four lists and rows point to it by number:
+  {"forms": [...], "makers": [...], "salts": [...], "strengths": [...],
+   "rows": [[brand, form#, maker#, salt#, strength#, salt#, strength#, ...], ...]}
+The page turns each row back into {"b": brand, "s": [[salt, strength], ...], "f": form, "m": maker}.
 
 Run:  python3 backend/build_data.py
 """
 import csv
+import gzip
 import io
 import json
 import re
@@ -48,10 +52,11 @@ def add(rows, seen, brand, salts, form, maker):
 def india():
     """Hand-made list first (checked by a pharmacist), then the DISB list (C-DAC/NRCeS, CC BY 4.0)."""
     rows, seen = [], set()
-    for name in ("brands.csv", "india_disb.csv"):
+    for name in ("brands.csv", "india_disb.csv.gz"):
       if not (HERE / name).exists():
         continue
-      with open(HERE / name, newline="", encoding="utf-8") as f:
+      opener = gzip.open if name.endswith(".gz") else open
+      with opener(HERE / name, "rt", newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             salts = []
             for part in r["salts"].split(" + "):
@@ -138,6 +143,19 @@ def europe(path):
     return rows
 
 
+def compact(rows):
+    """Store each form, maker, salt and strength once; rows refer to them by number."""
+    lists = {"forms": {}, "makers": {}, "salts": {}, "strengths": {}}
+    num = lambda kind, text: lists[kind].setdefault(text, len(lists[kind]))
+    out = []
+    for r in rows:
+        row = [r["b"], num("forms", r.get("f", "")), num("makers", r.get("m", ""))]
+        for salt, strength in r["s"]:
+            row += [num("salts", salt), num("strengths", strength)]
+        out.append(row)
+    return {**{k: list(v) for k, v in lists.items()}, "rows": out}
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sources = [
@@ -154,7 +172,7 @@ def main():
             continue
         rows = load()
         rows.sort(key=lambda r: r["b"].lower())
-        (OUT / f"{code}.json").write_text(json.dumps(rows, ensure_ascii=False, separators=(",", ":")))
+        (OUT / f"{code}.json").write_text(json.dumps(compact(rows), ensure_ascii=False, separators=(",", ":")))
         index.append({"code": code, "name": name, "count": len(rows)})
         print(f"{name}: {len(rows)} products")
     (OUT / "index.json").write_text(json.dumps(index, indent=1) + "\n")

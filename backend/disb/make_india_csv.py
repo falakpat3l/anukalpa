@@ -1,11 +1,11 @@
 """Turn the medicine list from the Drug Information Service Bundle (DISB, C-DAC/NRCeS)
-into backend/india_disb.csv (brand, form, salts, maker), the same layout as brands.csv.
+into backend/india_disb.csv.gz (gzip-compressed CSV: brand, form, salts, maker), the same layout as brands.csv.
 
 Input: medicine.jsonl, one record per line, dumped from DISB's Data/data/medicine index
 with Dump.java (see backend/disb/README.md). Only the medicine names and makers are used
 (the India-specific content, licensed CC BY 4.0), not SNOMED CT International content.
 """
-import csv, json, re, sys
+import csv, gzip, json, re, sys
 
 NAME = re.compile(r"^(.*?) \((.+)\) (.+)$")
 STRENGTH = re.compile(r"^([\d.,]+ \S+?(?:/[\d.,]* ?[A-Za-z]+)?)(?= |$)")
@@ -34,7 +34,7 @@ def parse(name):
 
 def main(src, dst):
     seen, n = set(), 0
-    with open(dst, "w", newline="", encoding="utf-8") as f:
+    with gzip.open(dst, "wt", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["brand", "form", "salts", "maker"])
         for line in open(src, encoding="utf-8"):

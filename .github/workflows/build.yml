@@ -19,8 +19,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build test APK
-        run: chmod +x gradlew && ./gradlew --no-daemon assembleDebug
+      - name: Build small test APK
+        run: chmod +x gradlew && ./gradlew --no-daemon assembleRelease
       - name: Publish pre-release with the APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -28,7 +28,7 @@ jobs:
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           TAG="v$VERSION"
           APK="Anukalpa-$TAG.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$APK"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else

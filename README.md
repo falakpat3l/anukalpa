@@ -13,24 +13,30 @@ For information only. Do not change or stop a medicine without asking your docto
 
 ```
 backend/brands.csv     India: hand-made list (brand, form, salts)
-backend/india_disb.csv India: from C-DAC / NRCeS Drug Information Service Bundle (CC BY 4.0), see backend/disb/
+backend/india_disb.csv.gz  India (zipped CSV): from C-DAC / NRCeS Drug Information Service Bundle (CC BY 4.0), see backend/disb/
 backend/sources/       official public lists, downloaded as they are:
                          US FDA NDC directory, Health Canada Drug Product Database, EMA medicines list
         |  python3 backend/build_data.py
         v
-docs/data/<country>.json   one list per country, plus index.json
+docs/data/<country>.json   one compact file per country (each name stored once), plus index.json
 docs/index.html            the app (website and Android app use the same page)
+docs/sw.js                 offline use for the website (not used in the Android app)
 docs/icon.svg, icon-*.png  web app icons (same capsule as the Android launcher icon)
 app/                       small Android wrapper that shows docs/ offline
 ```
 
-There is no server: the "backend" is the script that builds the data files. The app works offline and sends nothing anywhere. Pick a country (or All) to search; generic names are matched across countries, so "paracetamol" also finds US products listed as acetaminophen. A search stays in the page link (for example `?q=dolo%20650&c=ALL`), so it can be shared or reopened.
+There is no server: the "backend" is the script that builds the data files. The app sends nothing anywhere. Pick a country (or All) to search; generic names are matched across countries, so "paracetamol" also finds US products listed as acetaminophen, and "Pantoprazole 40 mg" matches "Pantoprazole sodium 40 mg". A search stays in the page link (for example `?q=dolo%20650&c=ALL`), so it can be shared or reopened, and Back returns to the previous search.
+
+- **Offline:** the Android app has every file inside. The website keeps the page and each country list you opened, so it works offline after the first visit.
+- **Share:** each result has a Share button. It opens the phone's share sheet, or copies a link to that brand.
+- **Recent searches:** the last 5 searches show under the search box when it is empty. They are kept only on your device (Clear removes them).
 
 ## Update the data
 
 1. Download the three files listed at the top of `backend/build_data.py` (US, Canada, EU) into `backend/sources/`. The India list from DISB is rebuilt separately, see `backend/disb/README.md`.
 2. Run `python3 backend/build_data.py`.
-3. Commit and push.
+3. In `docs/sw.js`, raise `VERSION` (for example `v1` to `v2`), so website visitors who used it offline get the new lists.
+4. Commit and push.
 
 To add an Indian brand, add a line to `backend/brands.csv`, for example `Dolo 650,tablet,Paracetamol 650 mg`, and run the script again.
 

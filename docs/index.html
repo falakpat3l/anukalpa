@@ -11,9 +11,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#000000">
 <style>
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_regular.ttf);font-weight:400;font-display:swap}
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_semibold.ttf);font-weight:500 600;font-display:swap}
-@font-face{font-family:"Exo 2";src:url(fonts/exo2_bold.ttf);font-weight:700;font-display:swap}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_semibold.woff2) format("woff2");font-weight:500 600;font-display:swap}
+@font-face{font-family:"Exo 2";src:url(fonts/exo2_bold.woff2) format("woff2");font-weight:700;font-display:swap}
 /* Same look as padachar: pure black, Exo 2, one soft blue accent, rounded shapes. */
 :root{--bg:#000;--card:#0d0d0d;--card2:#151515;--line:#2a2a2a;--fg:#ededed;--muted:#9e9e9e;--accent:#8ab4f8;color-scheme:dark}
 *{box-sizing:border-box}
@@ -82,6 +82,25 @@ max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transit
 .more{font-size:13px;color:var(--muted);align-self:center;padding:0 4px}
 .none{color:var(--muted);font-size:14px;margin:6px 0 0}
 .card>.none{margin-top:12px}
+.share{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:13px;background:none;border:1px solid var(--line);border-radius:999px;
+padding:2px 10px 2px 8px;margin-top:1px;color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s,background-color .15s}
+.share svg{width:14px;height:14px}
+.share:hover{border-color:var(--accent);color:var(--fg);background:var(--card2)}
+
+/* Recent searches, shown while the search box is empty */
+.recent{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 2px 0}
+.recent[hidden]{display:none}
+.recent .label{margin-right:2px}
+.recent .chips{display:contents}
+.recent .chips button span{color:var(--muted);font-size:12px;margin-left:4px}
+.recent .link{font-size:13px;color:var(--muted);margin-left:4px}
+.recent .link:hover{color:var(--accent)}
+
+/* Short message at the bottom, e.g. "Link copied" */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));z-index:10;transform:translate(-50%,8px);opacity:0;
+pointer-events:none;background:var(--card2);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:8px 18px;font-size:14px;
+white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.6);transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
 
 /* Empty, loading and error states */
 .empty{text-align:center;padding:26px 18px}
@@ -125,6 +144,7 @@ border-radius:999px;padding:6px 18px;cursor:pointer;transition:background-color 
   <div class="countries" id="countries" role="group" aria-label="Country"></div>
 </div>
 
+<div class="recent" id="recent" hidden></div>
 <p class="status" id="status" aria-live="polite" tabindex="-1"></p>
 <div id="out"></div>
 
@@ -134,6 +154,7 @@ border-radius:999px;padding:6px 18px;cursor:pointer;transition:background-color 
   <p>Brand names belong to their owners. Made by <a href="https://falakpatel.com">Falak Patel</a> &middot; <a href="https://github.com/falakpat3l/anukalpa">source</a></p>
 </footer>
 </main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 // Data: data/index.json lists the countries; data/<code>.json holds that country's products.
@@ -144,8 +165,14 @@ var failed = null;           // the choice (country code or ALL) whose list fail
 var want = 0;                // counts country choices, so a slow old download does not overwrite a newer choice
 var byKey = {};              // salt combination -> every product with it, for fast "same salts" lookups
 var allRows = [];            // every loaded product, rebuilt when a country loads
+var shownRows = [];          // products on screen now, for the Share buttons
+var pushNext = false;        // the next search gets its own history entry (a tap, not typing)
+var commit = false;          // the next search with results goes into Recent
+var last = null;             // the last search that found something: {q, c}
 var q = document.getElementById("q"), out = document.getElementById("out"), chips = document.getElementById("countries");
-var stat = document.getElementById("status"), field = document.getElementById("field");
+var stat = document.getElementById("status"), field = document.getElementById("field"), recentBox = document.getElementById("recent");
+var IN_APP = location.host === "appassets.androidplatform.net";
+var SITE = "https://falakpat3l.github.io/anukalpa/";
 
 // Short labels for the country buttons and badges (full names stay in index.json).
 var SHORT = {IN: "India", US: "US", CA: "Canada", EU: "EU"};
@@ -154,15 +181,43 @@ var EXAMPLES = {IN: ["Dolo 650", "Crocin", "Pan 40", "metformin"], US: ["Tylenol
   CA: ["Tylenol", "metformin", "amoxicillin"], EU: ["Abilify", "insulin glargine"], ALL: ["Dolo 650", "paracetamol", "metformin"]};
 
 // The same medicine can have a different generic name by country (US name -> international name).
-var ALIAS = {acetaminophen: "paracetamol", albuterol: "salbutamol", epinephrine: "adrenaline", norepinephrine: "noradrenaline",
+var ALIAS = {"acetylsalicylic acid": "aspirin", "clavulanate potassium": "clavulanic acid", "potassium clavulanate": "clavulanic acid"};
+// Single words: other names and spellings of the same salt.
+var WORD = {acetaminophen: "paracetamol", albuterol: "salbutamol", epinephrine: "adrenaline", norepinephrine: "noradrenaline",
   glyburide: "glibenclamide", meperidine: "pethidine", rifampin: "rifampicin", cyclosporine: "ciclosporin",
-  levalbuterol: "levosalbutamol", acetylsalicylic: "aspirin", "acetylsalicylic acid": "aspirin", lidocaine: "lignocaine"};
+  levalbuterol: "levosalbutamol", acetylsalicylic: "aspirin", lidocaine: "lignocaine", amoxycillin: "amoxicillin",
+  cephalexin: "cefalexin", besilate: "besylate", mesilate: "mesylate", sulphate: "sulfate", clavulanate: "clavulanic"};
+// Salt forms. "Pantoprazole 40 mg" is the same medicine as "Pantoprazole sodium 40 mg",
+// but "Diclofenac sodium" and "Diclofenac potassium" are not the same salt.
+var FORMS = {};
+("sodium potassium calcium magnesium hydrochloride hcl dihydrochloride hydrobromide besylate mesylate maleate fumarate " +
+ "succinate tartrate bitartrate citrate sulfate bisulfate phosphate oxalate acetate hyclate axetil anhydrous hydrate " +
+ "monohydrate dihydrate trihydrate hemihydrate sesquihydrate").split(" ").forEach(function (w) { FORMS[w] = 1; });
+// Minerals stay whole: "Calcium citrate" is not just "Calcium".
+var MINERALS = {sodium: 1, potassium: 1, calcium: 1, magnesium: 1, zinc: 1, ferrous: 1, ferric: 1, iron: 1, lithium: 1, copper: 1};
 
 function esc(t) {
   return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function norm(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
-function inn(name) { var n = norm(name); return ALIAS[n] || n; }
+// One spelling for each name, so "acetaminophen" finds paracetamol and "amoxycillin" finds amoxicillin.
+function canon(t) {
+  var n = norm(t);
+  if (ALIAS[n]) return ALIAS[n];
+  n = n.split(" ").map(function (w) { return WORD[w] || w; }).join(" ");
+  return ALIAS[n] || n;
+}
+// Salt name for matching. Canada writes "Amlodipine (Amlodipine Besylate)": the part in brackets is dropped.
+function inn(name) {
+  var base = String(name).replace(/\s*\([^()]*\)\s*$/, "");
+  return canon(norm(base) ? base : name);
+}
+// The salt without its form: "pantoprazole sodium" -> "pantoprazole".
+function bare(n) {
+  var w = n.split(" ");
+  while (w.length > 1 && FORMS[w[w.length - 1]]) w.pop();
+  return w.length === 1 && MINERALS[w[0]] ? n : w.join(" ");
+}
 function fmt(n) { return Number(n).toLocaleString("en"); }
 // Same salts AND same strength count as a match (e.g. paracetamol 500 mg), whatever the country.
 // Plain weights are compared in mg, so "1 g" matches "1000 mg".
@@ -171,20 +226,50 @@ function strength(t) {
   var m = /^(\d*\.?\d+)(mcg|mg|g)$/.exec(s);
   return m ? +(parseFloat(m[1]) * {mcg: 0.001, mg: 1, g: 1000}[m[2]]).toFixed(6) + "mg" : s;
 }
-function saltKey(p) { return p.s.map(function (s) { return inn(s[0]) + "@" + strength(s[1]); }).sort().join("|"); }
+// p.key groups products by salts without their form, p.full keeps the exact salts (same order).
+function addKeys(p) {
+  var parts = p.s.map(function (s) {
+    var full = inn(s[0]), st = strength(s[1]);
+    return {k: bare(full) + "@" + st, f: full, plain: bare(full) === full};
+  }).sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : a.f < b.f ? -1 : a.f > b.f ? 1 : 0; });
+  p.key = parts.map(function (x) { return x.k; }).join("|");
+  p.fk = parts.map(function (x) { return x.f + "@" + x.k; }).join("|");
+  p.full = parts.map(function (x) { return x.f; });
+  p.plain = parts.map(function (x) { return x.plain; });
+}
+// Same salts: equal names, or one side gives only the plain salt ("Pantoprazole" vs "Pantoprazole sodium").
+function sameSalts(a, b) {
+  for (var i = 0; i < a.full.length; i++) {
+    if (a.full[i] !== b.full[i] && !a.plain[i] && !b.plain[i]) return false;
+  }
+  return true;
+}
 function country(code) { return countries.filter(function (c) { return c.code === code; })[0] || {code: code, name: code}; }
 function longName(code) { return code === "ALL" ? "all countries" : country(code).name; }
 function shortName(code) { return code === "ALL" ? "All" : SHORT[code] || country(code).name; }
 function codesFor(choice) { return choice === "ALL" ? countries.map(function (c) { return c.code; }) : [choice]; }
 function isReady(choice) { return codesFor(choice).every(function (c) { return loaded[c]; }); }
+function known(choice) { return choice === "ALL" || countries.some(function (c) { return c.code === choice; }); }
+function cut(t, n) { return t.length > n ? t.slice(0, n - 1) + "…" : t; }
+
+// The data files store each form, maker, salt and strength once (see backend/build_data.py).
+// Turn each compact row back into {b: brand, s: [[salt, strength]], f: form, m: maker}.
+function expand(d) {
+  return d.rows.map(function (r) {
+    var s = [];
+    for (var i = 3; i < r.length; i += 2) s.push([d.salts[r[i]], d.strengths[r[i + 1]]]);
+    return {b: r[0], f: d.forms[r[1]], m: d.makers[r[2]], s: s};
+  });
+}
 
 function load(code) {
   if (loaded[code]) return Promise.resolve(loaded[code]);
   // Share one download per list: two quick taps must not add every product twice.
   if (loading[code]) return loading[code];
-  loading[code] = fetch("data/" + code + ".json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (rows) {
+  loading[code] = fetch("data/" + code + ".json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
+    var rows = expand(d);
     rows.forEach(function (p) {
-      p.c = code; p.key = saltKey(p); p.nb = norm(p.b);
+      p.c = code; p.nb = norm(p.b); addKeys(p);
       p.ns = p.s.map(function (s) { return norm(s[0]) + " " + inn(s[0]); }).join(" ");
       (byKey[p.key] = byKey[p.key] || []).push(p);
     });
@@ -211,12 +296,59 @@ function choose(choice) {
   });
 }
 
-function setUrl(text) {
-  // Keep the search in the link, so it can be shared or reopened.
+function query(text, c) {
   var parts = [];
   if (text) parts.push("q=" + encodeURIComponent(text));
-  if (pick !== "IN") parts.push("c=" + pick);
-  try { history.replaceState(null, "", parts.length ? "?" + parts.join("&") : location.pathname); } catch (e) { /* not allowed here */ }
+  if (c !== "IN") parts.push("c=" + c);
+  return parts.length ? "?" + parts.join("&") : "";
+}
+
+function setUrl(text) {
+  // Keep the search in the link, so it can be shared or reopened. A tap gets its own entry, so Back returns to it.
+  var s = query(text, pick), push = pushNext && s !== location.search;
+  pushNext = false;
+  try { history[push ? "pushState" : "replaceState"](null, "", s || location.pathname); } catch (e) { /* not allowed here */ }
+}
+
+// Read ?q=...&c=... from the address (on start and on Back / Forward).
+function readUrl() {
+  var u = new URLSearchParams(location.search), c = (u.get("c") || "IN").toUpperCase();
+  q.value = u.get("q") || "";
+  return c === "ALL" || /^[A-Z]{2}$/.test(c) ? c : "IN";
+}
+
+// Recent searches, kept on this device only.
+var RECENT_KEY = "anukalpa.recent";
+var recent = (function () {
+  try {
+    var v = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+    return Array.isArray(v) ? v.filter(function (r) { return r && typeof r.q === "string" && typeof r.c === "string" && r.q; }).slice(0, 5) : [];
+  } catch (e) { return []; }
+})();
+function saveRecent() {
+  try { if (recent.length) localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); else localStorage.removeItem(RECENT_KEY); } catch (e) { /* storage off */ }
+}
+function remember(text, c) {
+  var n = norm(text);
+  // Drop the same search, and shorter versions of it typed on the way ("dol" before "dolo 650").
+  recent = [{q: text, c: c}].concat(recent.filter(function (r) {
+    var m = norm(r.q);
+    return m !== n && !(r.c === c && n.indexOf(m) === 0);
+  })).slice(0, 5);
+  saveRecent();
+}
+// Save the current search if it found something, or the next one that does (a list may still be loading).
+function commitNow() {
+  if (last && last.q === q.value.trim() && last.c === pick) { remember(last.q, last.c); commit = false; }
+  else commit = true;
+}
+function drawRecent() {
+  var show = !q.value.trim() && recent.length > 0;
+  recentBox.hidden = !show;
+  if (!show) { recentBox.innerHTML = ""; return; }
+  recentBox.innerHTML = '<p class="label">Recent</p><div class="chips">' + recent.map(function (r, i) {
+    return '<button type="button" data-r="' + i + '">' + esc(cut(r.q, 40)) + (r.c !== pick ? "<span>" + esc(shortName(r.c)) + "</span>" : "") + "</button>";
+  }).join("") + '</div><button type="button" class="link" data-clear-recent>Clear</button>';
 }
 
 function exampleChips(choice) {
@@ -225,18 +357,22 @@ function exampleChips(choice) {
   }).join("") + "</div>";
 }
 
-function card(p, twin) {
+var SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+
+function card(p, twin, i) {
   // The same salts and strength elsewhere: other brands, grouped by country (only lists already loaded).
   var byC = {}, seenC = {};
   (byKey[p.key] || []).forEach(function (o) {
     // Skip this product itself, and names that differ only in case or spacing.
-    if (o === p || (o.c === p.c && o.nb === p.nb)) return;
+    if (o === p || (o.c === p.c && o.nb === p.nb) || !sameSalts(p, o)) return;
     var l = byC[o.c] = byC[o.c] || [], seen = seenC[o.c] = seenC[o.c] || {};
     if (!seen[o.nb]) { seen[o.nb] = 1; l.push(o.b); }
   });
   var meta = [p.f, p.m].filter(Boolean).map(esc).join(" &middot; ");
   var generic = p.s.map(function (s) { return esc((s[0] + " " + s[1]).trim()); }).join(' <span class="plus">+</span> ');
-  var top = '<article class="card"><div class="head"><h2 class="brand">' + esc(p.b) + '</h2><span class="badge">' + esc(shortName(p.c)) + "</span></div>" +
+  var top = '<article class="card"><div class="head"><h2 class="brand">' + esc(p.b) + '</h2><span class="badge">' + esc(shortName(p.c)) + "</span>" +
+    '<button type="button" class="share" data-share="' + i + '" aria-label="Share ' + esc(p.b) + '">' + SHARE_ICON + "Share</button></div>" +
     (meta ? '<p class="meta">' + meta + "</p>" : "") +
     '<div class="ask"><p class="label">Generic name to ask for</p><p class="generic">' + generic + "</p></div>";
   // A card higher up already lists the brands with these salts: point to it instead of repeating them.
@@ -272,6 +408,8 @@ function search() {
   var raw = q.value.trim(), t = norm(raw);
   field.classList.toggle("has", q.value.length > 0);
   setUrl(raw);
+  drawRecent();
+  shownRows = [];
   if (indexState !== "ok") {
     stat.textContent = "";
     out.innerHTML = indexState === "error"
@@ -292,15 +430,19 @@ function search() {
       total ? fmt(total) + " products. Your search runs as soon as it is ready." : "", '<div class="load"><i></i></div>');
     return;
   }
+  last = null;
   if (t.length < 2) {
+    commit = false;
     stat.textContent = "";
-    out.innerHTML = message(t ? "Keep typing" : "What are you looking for?",
-      "Type at least 2 letters of a brand or a salt. Try one of these:", exampleChips(pick));
+    // Text with no English letters or digits, like "डोलो" or "%": the lists only have English names.
+    out.innerHTML = raw && !t
+      ? message("Type in English letters", "Names are listed in English, for example Dolo 650 or paracetamol.", exampleChips(pick))
+      : message(t ? "Keep typing" : "What are you looking for?", "Type at least 2 letters of a brand or a salt. Try one of these:", exampleChips(pick));
     return;
   }
 
-  var ti = ALIAS[t] || t;
-  var words = t.split(" ").map(function (w) { return ALIAS[w] || w; });
+  var ti = canon(t);
+  var words = t.split(" ").map(function (w) { return WORD[w] || w; });
   var list = pick === "ALL" ? allRows : loaded[pick];
   var hits = [], seen = {};
   list.forEach(function (p) {
@@ -321,12 +463,15 @@ function search() {
 
   var where = longName(pick);
   if (!hits.length) {
+    commit = false;
     stat.textContent = "No match in " + where + ".";
-    out.innerHTML = message("No match for &ldquo;" + esc(raw) + "&rdquo;",
+    out.innerHTML = message("No match for &ldquo;" + esc(cut(raw, 60)) + "&rdquo;",
       "Check the spelling, or try the salt name instead of the brand.",
       pick !== "ALL" ? '<button type="button" class="pill" data-all>Search all countries</button>' : "");
     return;
   }
+  last = {q: raw, c: pick};
+  if (commit) { commit = false; remember(raw, pick); }
   var shown = hits.slice(0, 15);
   stat.textContent = hits.length > shown.length
     ? "Showing " + shown.length + " of " + fmt(hits.length) + " matches in " + where + ". Type more to narrow it down."
@@ -336,10 +481,11 @@ function search() {
     tip = '<p class="foot">Want brands from other countries too? <button type="button" class="link" data-all>Search all countries</button></p>';
   }
   var firstWith = {};
-  out.innerHTML = shown.map(function (h) {
-    var twin = firstWith[h.p.key];
-    if (!twin) firstWith[h.p.key] = h.p;
-    return card(h.p, twin);
+  shownRows = shown.map(function (h) { return h.p; });
+  out.innerHTML = shown.map(function (h, i) {
+    var twin = firstWith[h.p.fk];
+    if (!twin) firstWith[h.p.fk] = h.p;
+    return card(h.p, twin, i);
   }).join("") + tip;
 }
 
@@ -350,56 +496,130 @@ function drawChips() {
   }).join("");
 }
 
+// A short message at the bottom of the screen.
+var toastBox = document.getElementById("toast"), toastTimer;
+function toast(text) {
+  toastBox.textContent = text; toastBox.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toastBox.classList.remove("show"); }, 2200);
+}
+
+function copyText(text) {
+  function old() {
+    var t = document.createElement("textarea"), ok = false;
+    t.value = text; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(t);
+    return ok ? Promise.resolve() : Promise.reject(new Error("copy"));
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).catch(old);
+  } catch (e) { /* fall back below */ }
+  return old();
+}
+
+// Share one card: the phone's share sheet when there is one, otherwise copy the link.
+function share(p) {
+  if (!p) return;
+  // Inside the Android app the page has no public address, so share the website link.
+  var url = (IN_APP ? SITE : location.origin + location.pathname) + query(p.b, p.c);
+  var text = p.b + " (" + country(p.c).name + "): ask for " + p.s.map(function (s) { return (s[0] + " " + s[1]).trim(); }).join(" + ");
+  function copy() {
+    copyText(url).then(function () { toast("Link copied"); }, function () { toast("Could not copy the link"); });
+  }
+  if (navigator.share) {
+    navigator.share({title: p.b, text: text, url: url}).catch(function (e) {
+      if (!e || e.name !== "AbortError") copy();  // AbortError: the person closed the share sheet
+    });
+  } else copy();
+}
+
 chips.addEventListener("click", function (e) {
   var b = e.target.closest("button");
-  if (b) choose(b.dataset.c);
+  if (!b) return;
+  if (b.dataset.c !== pick) pushNext = true;
+  choose(b.dataset.c);  // the same country again retries a list that failed
 });
+
+function backToTop() {
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({top: 0, behavior: reduce ? "auto" : "smooth"});
+  // The tapped button is gone now: keep keyboard focus on the results line.
+  stat.focus({preventScroll: true});
+}
+
+// Search for text in country c (a tap on a brand, an example or a recent search).
+function go(text, c) {
+  clearTimeout(timer); clearTimeout(idle);
+  q.value = text; pushNext = true; commit = true;
+  if (c && c !== pick) choose(c); else search();
+  backToTop();
+}
 
 out.addEventListener("click", function (e) {
   var b = e.target.closest("button");
   if (!b) return;
   if (b.hasAttribute("data-retry")) { if (indexState === "error") start(); else choose(pick); return; }
-  if (b.hasAttribute("data-all")) { choose("ALL"); return; }
-  if (b.dataset.q) {
-    q.value = b.dataset.q;
-    // A brand from another country: switch to that country, unless All is on.
-    if (b.dataset.c && pick !== "ALL" && b.dataset.c !== pick) choose(b.dataset.c); else search();
-    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({top: 0, behavior: reduce ? "auto" : "smooth"});
-    // The tapped button is gone now: keep keyboard focus on the results line.
-    stat.focus({preventScroll: true});
-  }
+  if (b.hasAttribute("data-all")) { pushNext = true; commit = true; choose("ALL"); return; }
+  if (b.hasAttribute("data-share")) { share(shownRows[+b.dataset.share]); return; }
+  // A brand from another country: switch to that country, unless All is on.
+  if (b.dataset.q) go(b.dataset.q, pick !== "ALL" ? b.dataset.c : null);
 });
 
-var timer;
-q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(search, 120); field.classList.toggle("has", q.value.length > 0); });
-q.addEventListener("keydown", function (e) {
-  if (e.key === "Enter") { clearTimeout(timer); search(); }
-  if (e.key === "Escape" && q.value) { e.preventDefault(); q.value = ""; clearTimeout(timer); search(); }
+recentBox.addEventListener("click", function (e) {
+  var b = e.target.closest("button");
+  if (!b) return;
+  if (b.hasAttribute("data-clear-recent")) { recent = []; saveRecent(); drawRecent(); q.focus(); return; }
+  var r = recent[+b.dataset.r];
+  if (r) go(r.q, known(r.c) ? r.c : null);
 });
-document.getElementById("clear").addEventListener("click", function () { q.value = ""; clearTimeout(timer); search(); q.focus(); });
+
+var timer, idle;
+q.addEventListener("input", function () {
+  clearTimeout(timer); timer = setTimeout(search, 120);
+  field.classList.toggle("has", q.value.length > 0);
+  // Typing stopped for a moment: count it as a search for Recent.
+  commit = false; clearTimeout(idle); idle = setTimeout(commitNow, 2000);
+});
+q.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { clearTimeout(timer); clearTimeout(idle); search(); commitNow(); }
+  if (e.key === "Escape" && q.value) { e.preventDefault(); q.value = ""; clearTimeout(timer); clearTimeout(idle); search(); }
+});
+document.getElementById("clear").addEventListener("click", function () { q.value = ""; clearTimeout(timer); clearTimeout(idle); search(); q.focus(); });
 // Press "/" anywhere to jump to the search box.
 document.addEventListener("keydown", function (e) {
   if (e.key === "/" && document.activeElement !== q && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); q.focus(); q.select(); }
+});
+// Back and Forward: show the search from that point.
+window.addEventListener("popstate", function () {
+  clearTimeout(timer); clearTimeout(idle); commit = false;
+  var c = readUrl();
+  if (indexState !== "ok") { pick = c; search(); return; }
+  choose(known(c) ? c : "IN");
 });
 
 function start() {
   indexState = "loading"; search();
   fetch("data/index.json").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (idx) {
     countries = idx; indexState = "ok";
-    if (pick !== "ALL" && !countries.some(function (c) { return c.code === pick; })) pick = "IN";
+    if (!known(pick)) pick = "IN";
     choose(pick);
   }).catch(function () { indexState = "error"; search(); });
 }
 
 // Open a shared link (?q=...&c=...) where it left off.
-(function () {
-  var u = new URLSearchParams(location.search), c = (u.get("c") || "").toUpperCase();
-  if (u.get("q")) q.value = u.get("q");
-  if (c === "ALL" || /^[A-Z]{2}$/.test(c)) pick = c;
-  if (!q.value) q.focus();
-})();
+pick = readUrl();
+if (!q.value) q.focus();
 start();
+
+// Offline use on the website: keep the page and the lists already opened.
+// Not inside the Android app, which has every file already.
+try {
+  if ("serviceWorker" in navigator && !IN_APP && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () { /* offline use is optional */ }); });
+  }
+} catch (e) { /* offline use is optional */ }
 </script>
 </body>
 </html>
