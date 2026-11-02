@@ -10,19 +10,24 @@ Inputs (put the downloaded files in backend/sources/, exactly as downloaded):
           https://www.ema.europa.eu/en/documents/report/medicines-output-medicines-report_en.xlsx
 A missing file is skipped, so the app works with whatever is there.
 
-Output: docs/data/<code>.json (one file per country) and docs/data/index.json.
+Output: docs/data/<code>.json (one file per country), docs/data/index.json and docs/data/manifest.json.
+manifest.json holds the SHA-256 of index.json and each country file. The page checks every file against it
+before using it, so a cut-off or damaged download is never shown as real data.
 To keep the files small, repeated text is stored once in four lists and rows point to it by number:
   {"forms": [...], "makers": [...], "salts": [...], "strengths": [...],
    "rows": [[brand, form#, maker#, salt#, strength#, salt#, strength#, ...], ...]}
 The page turns each row back into {"b": brand, "s": [[salt, strength], ...], "f": form, "m": maker}.
 
 Run:  python3 backend/build_data.py
+Only rewrite manifest.json for the data files already there:  python3 backend/build_data.py --manifest
 """
 import csv
 import gzip
+import hashlib
 import io
 import json
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -143,6 +148,20 @@ def europe(path):
     return rows
 
 
+def write(path, text):
+    """Write UTF-8 with plain newlines on any computer, so the bytes (and their SHA-256) are the same everywhere."""
+    path.write_bytes(text.encode("utf-8"))
+
+
+def write_manifest():
+    """docs/data/manifest.json: the SHA-256 of index.json and of each country file it lists."""
+    index = json.loads((OUT / "index.json").read_text(encoding="utf-8"))
+    names = ["index.json"] + [f"{c['code']}.json" for c in index]
+    files = {n: hashlib.sha256((OUT / n).read_bytes()).hexdigest() for n in names}
+    write(OUT / "manifest.json", json.dumps({"files": files}, indent=1) + "\n")
+    print(f"manifest.json: {len(files)} files")
+
+
 def compact(rows):
     """Store each form, maker, salt and strength once; rows refer to them by number."""
     lists = {"forms": {}, "makers": {}, "salts": {}, "strengths": {}}
@@ -172,14 +191,18 @@ def main():
             continue
         rows = load()
         rows.sort(key=lambda r: r["b"].lower())
-        (OUT / f"{code}.json").write_text(json.dumps(compact(rows), ensure_ascii=False, separators=(",", ":")))
+        write(OUT / f"{code}.json", json.dumps(compact(rows), ensure_ascii=False, separators=(",", ":")))
         index.append({"code": code, "name": name, "count": len(rows)})
         print(f"{name}: {len(rows)} products")
-    (OUT / "index.json").write_text(json.dumps(index, indent=1) + "\n")
+    write(OUT / "index.json", json.dumps(index, indent=1) + "\n")
+    write_manifest()
     old = OUT / "medicines.json"
     if old.exists():
         old.unlink()
 
 
 if __name__ == "__main__":
-    main()
+    if "--manifest" in sys.argv[1:]:
+        write_manifest()
+    else:
+        main()

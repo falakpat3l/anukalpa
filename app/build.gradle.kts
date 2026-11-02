@@ -10,8 +10,8 @@ android {
         applicationId = "com.falakpat3l.anukalpa"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-alpha"
+        versionCode = 3
+        versionName = "0.2.1-alpha"
         resourceConfigurations += "en" // drop unused library translations
     }
     // The app shows the same web page as the website: the files in ../docs are packed into the APK.

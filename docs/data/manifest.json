@@ -1,0 +1,9 @@
+{
+ "files": {
+  "index.json": "4e154e45d1516f545b5bac04568aeb64aaf80eb943d5c6f27919de3837963899",
+  "IN.json": "b385dfb84e4da9a5dee7edddc7e107946a6918f1d6ccd096721cf6725672439b",
+  "US.json": "e59a8e1b099329e5dfb194cb7290884c7b929442241bcf031fedc8fa946205d9",
+  "CA.json": "5d5e8e63ed2e33ecc6fd089effad49ed2784ec2e7d1a5e9a488faa4bc7b4e7be",
+  "EU.json": "3ef1f845edf327eb8fc77c0171248650e1b90113389fe62616fe2e47dadac0af"
+ }
+}

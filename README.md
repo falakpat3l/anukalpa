@@ -19,7 +19,8 @@ backend/sources/       official public lists, downloaded as they are:
         |  python3 backend/build_data.py
         v
 docs/data/<country>.json   one compact file per country (each name stored once), plus index.json
-docs/index.html            the app (website and Android app use the same page)
+docs/data/manifest.json    SHA-256 of each data file, checked by the page before it uses a file
+docs/index.html            the app (website and Android app use the same page), with app.js and style.css
 docs/sw.js                 offline use for the website (not used in the Android app)
 docs/icon.svg, icon-*.png  web app icons (same capsule as the Android launcher icon)
 app/                       small Android wrapper that shows docs/ offline
@@ -34,11 +35,21 @@ There is no server: the "backend" is the script that builds the data files. The 
 ## Update the data
 
 1. Download the three files listed at the top of `backend/build_data.py` (US, Canada, EU) into `backend/sources/`. The India list from DISB is rebuilt separately, see `backend/disb/README.md`.
-2. Run `python3 backend/build_data.py`.
+2. Run `python3 backend/build_data.py`. It also writes `docs/data/manifest.json`. If you edit a data file by hand, run `python3 backend/build_data.py --manifest` to update the hashes.
 3. In `docs/sw.js`, raise `VERSION` (for example `v1` to `v2`), so website visitors who used it offline get the new lists.
 4. Commit and push.
 
 To add an Indian brand, add a line to `backend/brands.csv`, for example `Dolo 650,tablet,Paracetamol 650 mg`, and run the script again.
+
+## Security
+
+- The page only loads its own files: a Content-Security-Policy blocks outside scripts, styles, frames and forms. All code is in `docs/app.js` and `docs/style.css` (no inline code).
+- Each data file is checked against its SHA-256 in `docs/data/manifest.json` before it is used. A cut-off or damaged download shows an error with Try again, and is not saved for offline use.
+- The offline copy (`docs/sw.js`) saves only complete answers from this site, never error pages.
+- Names from the lists are always escaped before they are shown, so text in the data cannot run as code.
+- The Android app has no internet permission, loads only its own files, and cannot read other files on the phone. Links open in your browser.
+
+This guards against broken or damaged files. It is not a signature: anyone who can change the repo can change the manifest too.
 
 ## Data sources and licences
 

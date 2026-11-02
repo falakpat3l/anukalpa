@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import java.io.ByteArrayInputStream
 
 /**
  * The whole app is the web page in docs/, shown full screen.
@@ -33,14 +34,22 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(Color.BLACK)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            // Security: the page only needs its own files from the APK, never other files on the phone.
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
             webViewClient = object : WebViewClientCompat() {
+                // Only the app's own files are loaded. Anything else gets an empty "not found".
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                     loader.shouldInterceptRequest(request.url)
+                        ?: WebResourceResponse("text/plain", "utf-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
-                // Links to other sites open in the phone's browser.
+                // Links to other sites (http or https only) open in the phone's browser, never inside the app.
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    if (request.url.host == "appassets.androidplatform.net") return false
-                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
+                    val url = request.url
+                    if (url.scheme == "https" && url.host == "appassets.androidplatform.net") return false
+                    if (url.scheme == "https" || url.scheme == "http") {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE)) }
+                    }
                     return true
                 }
             }
