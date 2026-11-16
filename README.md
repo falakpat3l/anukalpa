@@ -64,3 +64,7 @@ This guards against broken or damaged files. It is not a signature: anyone who c
 Brand and trade names belong to their owners and are shown only to identify products. The data is provided as is, for information only.
 
 Made by [Falak Patel](https://falakpatel.com).
+
+## How this was built
+
+I specified what this should do, tested it and released it. AI coding assistants wrote most of the code.
