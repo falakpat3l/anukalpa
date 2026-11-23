@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -12,7 +11,6 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "0.2.1-alpha"
-        resourceConfigurations += "en" // drop unused library translations
     }
     // The app shows the same web page as the website: the files in ../docs are packed into the APK.
     sourceSets["main"].assets.srcDirs("../docs")
@@ -26,11 +24,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    androidResources { localeFilters += "en" } // drop unused library translations
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
 }
 
 dependencies {
