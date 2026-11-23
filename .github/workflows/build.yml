@@ -24,7 +24,7 @@ jobs:
         run: chmod +x gradlew && ./gradlew --no-daemon assembleRelease
       - name: Keep the test APK (branches only)
         if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-apk
           path: app/build/outputs/apk/release/app-release.apk
